@@ -1,7 +1,7 @@
 /********************************************************************************
 ** Form generated from reading UI file 'patient_registration.ui'
 **
-** Created by: Qt User Interface Compiler version 5.2.1
+** Created by: Qt User Interface Compiler version 5.7.0
 **
 ** WARNING! All changes made in this file will be lost when recompiling UI file!
 ********************************************************************************/
@@ -446,7 +446,6 @@ public:
         button_finish = new QPushButton(PatientRegistration);
         button_finish->setObjectName(QStringLiteral("button_finish"));
         button_finish->setCheckable(false);
-        button_finish->setDefault(false);
         button_finish->setFlat(false);
 
         horizontalLayout->addWidget(button_finish);
@@ -460,6 +459,9 @@ public:
 
         retranslateUi(PatientRegistration);
         QObject::connect(button_cancel, SIGNAL(clicked()), PatientRegistration, SLOT(close()));
+
+        button_finish->setDefault(false);
+
 
         QMetaObject::connectSlotsByName(PatientRegistration);
     } // setupUi

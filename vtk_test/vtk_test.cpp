@@ -2,9 +2,10 @@
 #include "patient_reg_widget.h"
 #include "demo_widget.h"
 
- #include <vtkAutoInit.h>
- VTK_MODULE_INIT(vtkRenderingOpenGL);
- VTK_MODULE_INIT(vtkInteractionStyle);
+
+ //#include <vtkAutoInit.h>
+ //VTK_MODULE_INIT(vtkRenderingOpenGL);
+ //VTK_MODULE_INIT(vtkInteractionStyle);
 
 #include <qscreen.h>
 #include <QVTKWidget.h>
@@ -25,12 +26,11 @@
 #include <vtkTriangleFilter.h>
 #include <vtkStripper.h>
 #include <math.h>
-#include <Eigen/Core>
-#include <Eigen/Dense>
-#include <Eigen/Geometry>
+
 #include "infowidget.h"
 #include <cassert>
-#include <boost/ptr_container/ptr_vector.hpp>
+
+#include <QtCore>
 
 #ifndef NDEBUG
 #define PRINT_MATRIX(mat) {std::cout << #mat ##":" << std::endl << mat << std::endl;}
@@ -39,14 +39,14 @@
 #endif
 
 #define	 TRACKER_SIMULATE		0		// 1 for simulate, 0 if using tracker  NOT CURRENTLY WORKING!!
-#define  TRACKER_COMPORT		7		// NOTE: COM port is zero-indexed (N-1)
+#define  TRACKER_COMPORT		3		// NOTE: COM port is zero-indexed (N-1)
 #define	 PROBE_DESIRED_X		-79.3	// fixed position to use as the target pose
 #define	 PROBE_DESIRED_Y		-376.8	
 #define	 PROBE_DESIRED_Z		1451.95
 #define  SIMULATE_ERROR			0.9		// Error to use when simulating
 
 
- const static int FRAME_RATE_UPDATE_INTERVAL = 1000; //integer [ms]
+ const static int FRAME_RATE_UPDATE_INTERVAL = 1000/60; //integer [ms]
  const static int NUM_TRACKED_TOOLS = 2; // which tools depends on the order in the .ini file (first N tools)
 
  using namespace Eigen;
@@ -65,6 +65,7 @@ vtk_test::vtk_test(QWidget *parent)
 	pTrackerSetup = NULL;
 	m_tracker = NULL;
 
+	needRefresh = false;
 	isTracking = false;
 
 	ui.setupUi(this);
@@ -106,10 +107,16 @@ vtk_test::vtk_test(QWidget *parent)
 	ui.gridlayout->addWidget(m_pQVTK_side_inset, 1, 2, 1, 1, Qt::AlignBottom | Qt::AlignRight);
 
 	// setup timers
+	qDebug() << "Main::main: " << QThread::currentThreadId();
 	m_timer.setInterval(0);
 	m_timer.setSingleShot(false);
-	connect(&m_timer, SIGNAL(timeout()), this, SLOT(slot_onGUITimer()));
-	//m_timer.start();
+
+	trackerThread = new QThread;
+	trackerWorker = new TrackWorker(NUM_TRACKED_TOOLS,this);
+	m_timer.moveToThread(trackerThread);
+	trackerWorker->connect(&m_timer, SIGNAL(timeout()), SLOT(slots_run()), Qt::DirectConnection);
+	m_timer.connect(trackerThread, SIGNAL(started()), SLOT(start()));
+	
 
 	m_frameRateTimer.setInterval(FRAME_RATE_UPDATE_INTERVAL);
 	m_frameRateTimer.setSingleShot(false);
@@ -262,7 +269,7 @@ void vtk_test::InitVTK() {
 void vtk_test::Initialize()
 {
 	double color1[] = { 0.8,0.3,0.3 };
-	vtkSmartPointer<vtkActor> pActor_CI_target = LoadOBJFile(QString::fromLocal8Bit("D:\\Trevor\\My Documents\\Code\\VTKtest\\vtk_test\\x64\\Release\\insertion_tool_wtarget.obj"), 0.3, color1);
+	vtkSmartPointer<vtkActor> pActor_CI_target = LoadOBJFile(QString::fromLocal8Bit("C:\\Users\\wirzgor\\Source\\Repos\\CI-Guidance\\x64\\Debug\\insertion_tool_wtarget.obj"), 0.3, color1);
 	m_pRenderer_top->AddActor(pActor_CI_target);
 	m_pRenderer_top_inset->AddActor(pActor_CI_target);
 	m_pRenderer_oblique->AddActor(pActor_CI_target);
@@ -272,7 +279,7 @@ void vtk_test::Initialize()
 	m_pRenderer_side_inset->AddActor(pActor_CI_target);
 
 	double color2[] = { 0.3,1.0,0.3 };
-	vtkSmartPointer<vtkActor> pActor_CI_tool = LoadOBJFile(QString::fromLocal8Bit("D:\\Trevor\\My Documents\\Code\\VTKtest\\vtk_test\\x64\\Release\\insertion_tool_wtarget.obj"), 1.0, color2);
+	vtkSmartPointer<vtkActor> pActor_CI_tool = LoadOBJFile(QString::fromLocal8Bit("C:\\Users\\wirzgor\\Source\\Repos\\CI-Guidance\\x64\\Debug\\insertion_tool_wtarget.obj"), 1.0, color2);
 	m_pRenderer_top->AddActor(pActor_CI_tool);
 	m_pRenderer_top_inset->AddActor(pActor_CI_tool);
 	m_pRenderer_oblique->AddActor(pActor_CI_tool);
@@ -282,7 +289,7 @@ void vtk_test::Initialize()
 	m_pRenderer_side_inset->AddActor(pActor_CI_tool);
 
 	double color3[] = { 0.3,0.3,1 };
-	vtkSmartPointer<vtkActor> pActor_probe = LoadOBJFile(QString::fromLocal8Bit("D:\\Trevor\\My Documents\\Code\\VTKtest\\vtk_test\\x64\\Release\\polaris_probe.obj"), 1.0, color3);
+	vtkSmartPointer<vtkActor> pActor_probe = LoadOBJFile(QString::fromLocal8Bit("C:\\Users\\wirzgor\\Source\\Repos\\CI-Guidance\\x64\\Debug\\polaris_probe.obj"), 1.0, color3);
 	//vtkSmartPointer<vtkActor> pActor_probe = LoadSTLFile(QString::fromLocal8Bit("C:\\Users\\wirzgor\\Source\\Repos\\CI-Guidance\\x64\\Debug\\patient.stl"), 1.0, color3);
 	m_pRenderer_top->AddActor(pActor_probe);
 	m_pRenderer_oblique->AddActor(pActor_probe);
@@ -294,71 +301,88 @@ void vtk_test::Initialize()
 	m_pActor_probe = pActor_probe;
 
 	slot_CenterView(QString("centerCItool"));
+
+	
 }
 
-void vtk_test::slot_onGUITimer()
+void vtk_test::slot_updateTrackerInfo()
 {
-	// declare variables	
-	boost::ptr_vector< Eigen::Quaterniond > quat_Polaris;
-	boost::ptr_vector< Eigen::Vector3d > p;
-	boost::ptr_vector< Eigen::Matrix3d> R;
-	boost::ptr_vector< Eigen::Matrix4d > T;
-	boost::ptr_vector< Eigen::Matrix4d > Trans_final;
+	
+	//qDebug() << "Main::slot_updateTrackerInfo: "  << QThread::currentThreadId();
+	
+	//// declare variables	
+	//boost::ptr_vector< Eigen::Quaterniond > quat_Polaris;
+	//boost::ptr_vector< Eigen::Vector3d > p;
+	//boost::ptr_vector< Eigen::Matrix3d> R;
+	//boost::ptr_vector< Eigen::Matrix4d > T;
+	//boost::ptr_vector< Eigen::Matrix4d > Trans_final;
 
-	quat_Polaris.resize(NUM_TRACKED_TOOLS + 1);
-	p.resize(NUM_TRACKED_TOOLS + 1);
-	R.resize(NUM_TRACKED_TOOLS + 1);
-	T.resize(NUM_TRACKED_TOOLS + 1);
-	Trans_final.resize(NUM_TRACKED_TOOLS + 1);
+	//quat_Polaris.resize(NUM_TRACKED_TOOLS + 1);
+	//p.resize(NUM_TRACKED_TOOLS + 1);
+	//R.resize(NUM_TRACKED_TOOLS + 1);
+	//T.resize(NUM_TRACKED_TOOLS + 1);
+	//Trans_final.resize(NUM_TRACKED_TOOLS + 1);
 
+	
+
+	//// get transformations from tracker and place in eigen matrices
+	//std::vector<ToolInformationStruct> tools = m_tracker->GetTransformations();
+
+	//if (TRACKER_SIMULATE) {
+	//	quat_Polaris[1] = Eigen::Quaterniond(1, 0, 0, 0);
+	//	quat_Polaris[2] = Eigen::Quaterniond(AngleAxisd(3.14159265358979323846 / 12.0, Vector3d::UnitZ()));
+	//	p[1] = Vector3d(-20, -100, -15);
+	//	p[2] = Vector3d(-2, 0.5, 0.2);
+	//	m_CItarget_transform = Matrix4d::Identity();
+	//	vtkSmartPointer<vtkTransform> pvtk_T_CItarget = vtkSmartPointer<vtkTransform>::New();
+	//	pvtk_T_CItarget->Identity();
+	//	m_pActor_CItarget->SetUserTransform(pvtk_T_CItarget);
+	//}
+	//else {
+	//	for (int toolnum = 1; toolnum <= NUM_TRACKED_TOOLS; toolnum++) {
+	//		quat_Polaris[toolnum] = Eigen::Quaterniond(tools[toolnum].q0, tools[toolnum].qx, tools[toolnum].qy, tools[toolnum].qz);
+	//		p[toolnum](0) = tools[toolnum].x;
+	//		p[toolnum](1) = tools[toolnum].y;
+	//		p[toolnum](2) = tools[toolnum].z;
+	//	}
+	//}
+
+	//// convert quaternion to rotation matrix and combine with translation into a transformation matrix
+	//for (int toolnum = 1; toolnum <= NUM_TRACKED_TOOLS; toolnum++) {
+	//	R[toolnum] = quat_Polaris[toolnum].toRotationMatrix();
+	//	T[toolnum] = Eigen::Matrix4d::Identity();
+	//	T[toolnum].block<3, 3>(0, 0) = R[toolnum];
+	//	T[toolnum].block<3, 1>(0, 3) = p[toolnum];
+	//	Eigen::Matrix4d Polaris_sim_trans(4, 4);
+	//	Polaris_sim_trans << 0, -1, 0, 0, // note: inverse is equal to itself for this matrix
+	//		-1, 0, 0, 0,
+	//		0, 0, -1, 0,
+	//		0, 0, 0, 1;
+
+	//	// apply similarity transform
+	//	Trans_final[toolnum] = Polaris_sim_trans*T[toolnum] * Polaris_sim_trans.inverse();
+	//}
+
+	// Update actors with new transforms
+	
+	while (!trackerWorker->dataTracker.tryLock()) {
+		QApplication::processEvents();
+	}
+	m_probe_transform = trackerWorker->Trans_final[1];
+	m_CItool_transform = trackerWorker->Trans_final[2];
+	//qDebug() << "UPDATING";
+	trackerWorker->dataTracker.unlock();
+	
+	
+	Matrix4d CItool_transpose = m_CItool_transform.transpose(); // vtktransform is transpose of eigen matrix
+	Matrix4d probe_transpose = m_probe_transform.transpose();
+	
 	vtkSmartPointer<vtkTransform> pvtk_T_probe = vtkSmartPointer<vtkTransform>::New();
 	vtkSmartPointer<vtkTransform> pvtk_T_CItool = vtkSmartPointer<vtkTransform>::New();
 
-	// get transformations from tracker and place in eigen matrices
-	std::vector<ToolInformationStruct> tools = m_tracker->GetTransformations();
-
-	if (TRACKER_SIMULATE) {
-		quat_Polaris[1] = Eigen::Quaterniond(1, 0, 0, 0);
-		quat_Polaris[2] = Eigen::Quaterniond(AngleAxisd(3.14159265358979323846 / 12.0, Vector3d::UnitZ()));
-		p[1] = Vector3d(-20,-100,-15);
-		p[2] = Vector3d(-2, 0.5, 0.2);
-		m_CItarget_transform = Matrix4d::Identity();
-		vtkSmartPointer<vtkTransform> pvtk_T_CItarget = vtkSmartPointer<vtkTransform>::New();
-		pvtk_T_CItarget->Identity();
-		m_pActor_CItarget->SetUserTransform(pvtk_T_CItarget);
-	}
-	else {
-		for (int toolnum = 1; toolnum <= NUM_TRACKED_TOOLS; toolnum++) {
-			quat_Polaris[toolnum] = Eigen::Quaterniond(tools[toolnum].q0, tools[toolnum].qx, tools[toolnum].qy, tools[toolnum].qz);
-			p[toolnum](0) = tools[toolnum].x;
-			p[toolnum](1) = tools[toolnum].y;
-			p[toolnum](2) = tools[toolnum].z;
-		}
-	}
-
-	// convert quaternion to rotation matrix and combine with translation into a transformation matrix
-	for (int toolnum = 1; toolnum <= NUM_TRACKED_TOOLS; toolnum++) {
-		R[toolnum] = quat_Polaris[toolnum].toRotationMatrix();
-		T[toolnum] = Eigen::Matrix4d::Identity();
-		T[toolnum].block<3, 3>(0, 0) = R[toolnum];
-		T[toolnum].block<3, 1>(0, 3) = p[toolnum];
-		Eigen::Matrix4d Polaris_sim_trans(4, 4);
-		Polaris_sim_trans << 0, -1,  0, 0, // note: inverse is equal to itself for this matrix
-							-1,  0,  0, 0,
-							 0,  0, -1, 0,
-							 0,  0,  0, 1;
-
-		// apply similarity transform
-		Trans_final[toolnum] = Polaris_sim_trans*T[toolnum] * Polaris_sim_trans.inverse();
-	}
-
-	// Update actors with new transforms
-	m_probe_transform  = Trans_final[1];
-	m_CItool_transform = Trans_final[2];
-	Matrix4d CItool_transpose = m_CItool_transform.transpose(); // vtktransform is transpose of eigen matrix
-	Matrix4d probe_transpose = m_probe_transform.transpose();
 	pvtk_T_probe->SetMatrix(probe_transpose.data());
 	pvtk_T_CItool->SetMatrix(CItool_transpose.data());
+	
 	m_pActor_probe->SetUserTransform(pvtk_T_probe);
 	m_pActor_CItool->SetUserTransform(pvtk_T_CItool);
 
@@ -377,21 +401,131 @@ void vtk_test::slot_onGUITimer()
 		// reset flag
 		flag_SetTarget = FALSE;
 	}
-
+	
 	// update QVTKWidgets
-	m_pQVTK_top->update();
-	m_pQVTK_top_inset->update();
-	m_pQVTK_oblique->update();
-	m_pQVTK_front->update();
-	m_pQVTK_front_inset->update();
-	m_pQVTK_side->update();
-	m_pQVTK_side_inset->update();
+	needRefresh = true;
+	
 
-	emit sgn_NewProbePosition(m_probe_transform(0,3), m_probe_transform(1, 3), m_probe_transform(2, 3));
-	emit sgn_NewCIPosition(m_CItool_transform(0,3), m_CItool_transform(1, 3), m_CItool_transform(2, 3));
+	emit sgn_NewProbePosition(m_probe_transform(0, 3), m_probe_transform(1, 3), m_probe_transform(2, 3));
+	emit sgn_NewCIPosition(m_CItool_transform(0, 3), m_CItool_transform(1, 3), m_CItool_transform(2, 3));
 	emit sgn_WriteData();
 	m_frames++;
+	//if (frameTimer.elapsed() >= 1000) {
+	//	double fps = ((double)frameTimer.elapsed() / m_frames);
+	//	qDebug() << fps;
+	//}
 }
+
+void vtk_test::refreshScreen() {
+	if (needRefresh) {
+		m_pQVTK_top->update();
+		m_pQVTK_top_inset->update();
+		m_pQVTK_oblique->update();
+		m_pQVTK_front->update();
+		m_pQVTK_front_inset->update();
+		m_pQVTK_side->update();
+		m_pQVTK_side_inset->update();
+	}
+	needRefresh = false;
+}
+
+//void vtk_test::slot_onGUITimer()
+//{
+//	qDebug() << "Main::slot_onGUITimer: " << QThread::currentThreadId();
+//	// declare variables	
+//	boost::ptr_vector< Eigen::Quaterniond > quat_Polaris;
+//	boost::ptr_vector< Eigen::Vector3d > p;
+//	boost::ptr_vector< Eigen::Matrix3d> R;
+//	boost::ptr_vector< Eigen::Matrix4d > T;
+//	boost::ptr_vector< Eigen::Matrix4d > Trans_final;
+//
+//	quat_Polaris.resize(NUM_TRACKED_TOOLS + 1);
+//	p.resize(NUM_TRACKED_TOOLS + 1);
+//	R.resize(NUM_TRACKED_TOOLS + 1);
+//	T.resize(NUM_TRACKED_TOOLS + 1);
+//	Trans_final.resize(NUM_TRACKED_TOOLS + 1);
+//
+//	vtkSmartPointer<vtkTransform> pvtk_T_probe = vtkSmartPointer<vtkTransform>::New();
+//	vtkSmartPointer<vtkTransform> pvtk_T_CItool = vtkSmartPointer<vtkTransform>::New();
+//
+//	// get transformations from tracker and place in eigen matrices
+//	std::vector<ToolInformationStruct> tools = m_tracker->GetTransformations();
+//
+//	if (TRACKER_SIMULATE) {
+//		quat_Polaris[1] = Eigen::Quaterniond(1, 0, 0, 0);
+//		quat_Polaris[2] = Eigen::Quaterniond(AngleAxisd(3.14159265358979323846 / 12.0, Vector3d::UnitZ()));
+//		p[1] = Vector3d(-20,-100,-15);
+//		p[2] = Vector3d(-2, 0.5, 0.2);
+//		m_CItarget_transform = Matrix4d::Identity();
+//		vtkSmartPointer<vtkTransform> pvtk_T_CItarget = vtkSmartPointer<vtkTransform>::New();
+//		pvtk_T_CItarget->Identity();
+//		m_pActor_CItarget->SetUserTransform(pvtk_T_CItarget);
+//	}
+//	else {
+//		for (int toolnum = 1; toolnum <= NUM_TRACKED_TOOLS; toolnum++) {
+//			quat_Polaris[toolnum] = Eigen::Quaterniond(tools[toolnum].q0, tools[toolnum].qx, tools[toolnum].qy, tools[toolnum].qz);
+//			p[toolnum](0) = tools[toolnum].x;
+//			p[toolnum](1) = tools[toolnum].y;
+//			p[toolnum](2) = tools[toolnum].z;
+//		}
+//	}
+//
+//	// convert quaternion to rotation matrix and combine with translation into a transformation matrix
+//	for (int toolnum = 1; toolnum <= NUM_TRACKED_TOOLS; toolnum++) {
+//		R[toolnum] = quat_Polaris[toolnum].toRotationMatrix();
+//		T[toolnum] = Eigen::Matrix4d::Identity();
+//		T[toolnum].block<3, 3>(0, 0) = R[toolnum];
+//		T[toolnum].block<3, 1>(0, 3) = p[toolnum];
+//		Eigen::Matrix4d Polaris_sim_trans(4, 4);
+//		Polaris_sim_trans << 0, -1,  0, 0, // note: inverse is equal to itself for this matrix
+//							-1,  0,  0, 0,
+//							 0,  0, -1, 0,
+//							 0,  0,  0, 1;
+//
+//		// apply similarity transform
+//		Trans_final[toolnum] = Polaris_sim_trans*T[toolnum] * Polaris_sim_trans.inverse();
+//	}
+//
+//	// Update actors with new transforms
+//	m_probe_transform  = Trans_final[1];
+//	m_CItool_transform = Trans_final[2];
+//	Matrix4d CItool_transpose = m_CItool_transform.transpose(); // vtktransform is transpose of eigen matrix
+//	Matrix4d probe_transpose = m_probe_transform.transpose();
+//	pvtk_T_probe->SetMatrix(probe_transpose.data());
+//	pvtk_T_CItool->SetMatrix(CItool_transpose.data());
+//	m_pActor_probe->SetUserTransform(pvtk_T_probe);
+//	m_pActor_CItool->SetUserTransform(pvtk_T_CItool);
+//
+//	// Update alignment error
+//	Update_err();
+//
+//	if (flag_SetTarget)
+//	{
+//		// update target actor
+//		m_CItarget_transform = m_CItool_transform;
+//		m_pActor_CItarget->SetUserTransform(pvtk_T_CItool);
+//
+//		// recenter view on target
+//		slot_CenterView(QString("centerCItarget"));
+//
+//		// reset flag
+//		flag_SetTarget = FALSE;
+//	}
+//
+//	// update QVTKWidgets
+//	m_pQVTK_top->update();
+//	m_pQVTK_top_inset->update();
+//	m_pQVTK_oblique->update();
+//	m_pQVTK_front->update();
+//	m_pQVTK_front_inset->update();
+//	m_pQVTK_side->update();
+//	m_pQVTK_side_inset->update();
+//
+//	emit sgn_NewProbePosition(m_probe_transform(0,3), m_probe_transform(1, 3), m_probe_transform(2, 3));
+//	emit sgn_NewCIPosition(m_CItool_transform(0,3), m_CItool_transform(1, 3), m_CItool_transform(2, 3));
+//	emit sgn_WriteData();
+//	m_frames++;
+//}
 
 void vtk_test::resizeEvent(QResizeEvent *event)
 {
@@ -404,6 +538,7 @@ void vtk_test::slot_onFrameRateTimer()
 	double rate = (double)m_frames*1000.0 / (double)FRAME_RATE_UPDATE_INTERVAL;
 	m_frameRateLabel.setText( QString::number((int)rate).rightJustified(4,' ',false) );
 	m_frames = 0;
+	refreshScreen();
 }
 
 void vtk_test::slot_onRegistration(Eigen::MatrixXd T)
@@ -509,7 +644,8 @@ void vtk_test::slot_CenterTarget()
 void vtk_test::slot_Tracker_Stop() {
 	ui.actionTracker_Init->setDisabled(false);
 	ui.actionTracker_Stop->setDisabled(true);
-	m_timer.stop();
+	//m_timer.stop();
+	//trackerThread->terminate();
 	m_tracker->StopTracking();
 	isTracking = false;
 }
@@ -526,7 +662,10 @@ void vtk_test::slot_Tracker_Init() {
 			cout << "Error! The tracker can no track! " << endl;
 		else {
 			cout << "Working! Starting tracking!" << endl;
-			m_timer.start();
+			//m_timer.start();
+			trackerWorker->theTracker = m_tracker;
+			trackerThread->start();
+			//frameTimer.start();
 			ui.actionTracker_Init->setDisabled(true);
 			ui.actionTracker_Stop->setDisabled(false);
 			isTracking = true;

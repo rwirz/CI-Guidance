@@ -16,6 +16,14 @@
 #include <patient_data.h>
 #include "demo_widget.h"
 #include "TrackerSetup.h"
+#include "TrackWorker.h"
+#include <Eigen/Core>
+#include <Eigen/Dense>
+#include <Eigen/Geometry>
+#include <boost/ptr_container/ptr_vector.hpp>
+#include <QTime>
+
+
 
 class vtkRenderer;
 class QVTKWidget;
@@ -31,11 +39,16 @@ struct AlignmentErrors { // Note: all units are [mm] or [rad]
 	double phi;	   // angle about primary axis
 };
 
+
+
 class vtk_test : public QMainWindow
 {
 	Q_OBJECT
 
+		
+
 public:
+	//static QMutex dataTracker;
 	vtk_test(QWidget *parent = 0);
 	~vtk_test();
 	vtkSmartPointer<vtkActor> LoadOBJFile(QString const& str, double opacity, double color[3]) const;
@@ -44,6 +57,8 @@ public:
 	void SetTransformforCI_target(patient_data, Eigen::MatrixXd);
 	void SetTransformforCI_target(Eigen::MatrixXd);
 
+	
+
 protected:
 	Demo_Widget *pDemo_Widget;
 
@@ -51,7 +66,8 @@ protected slots:
     void slot_Tracker_Init();
     void slot_Tracker_Stop();
 	void slot_update_COM(int thePort);
-	void slot_onGUITimer();
+	//void slot_onGUITimer();
+	void slot_updateTrackerInfo();
 	void slot_CenterView(QString);
 	void slot_CenterTarget();
 	void slot_Register_Patient();
@@ -75,9 +91,14 @@ signals:
 	void sgn_WriteData();
 
 private:
+	bool needRefresh;
+	void refreshScreen();
+	//QTime frameTimer;
+	QThread *trackerThread;
 	bool isTracking;
 	int tracker_Port;
 	double dpi;
+	TrackWorker *trackerWorker;
 	TrackerSetup *pTrackerSetup;
 	Ui::vtk_testClass	ui;
 	QTimer			m_timer;

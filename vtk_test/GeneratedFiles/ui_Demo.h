@@ -1,7 +1,7 @@
 /********************************************************************************
 ** Form generated from reading UI file 'Demo.ui'
 **
-** Created by: Qt User Interface Compiler version 5.2.1
+** Created by: Qt User Interface Compiler version 5.7.0
 **
 ** WARNING! All changes made in this file will be lost when recompiling UI file!
 ********************************************************************************/
@@ -113,7 +113,6 @@ public:
         button_end = new QPushButton(Demo);
         button_end->setObjectName(QStringLiteral("button_end"));
         button_end->setCheckable(false);
-        button_end->setDefault(false);
         button_end->setFlat(false);
 
         horizontalLayout->addWidget(button_end);
@@ -126,6 +125,9 @@ public:
 
 
         retranslateUi(Demo);
+
+        button_end->setDefault(false);
+
 
         QMetaObject::connectSlotsByName(Demo);
     } // setupUi
