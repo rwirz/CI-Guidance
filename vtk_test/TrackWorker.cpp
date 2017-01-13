@@ -1,4 +1,5 @@
 #include "TrackWorker.h"
+#include "Conversions.h"
 #include <QtCore>
 
 
@@ -8,16 +9,59 @@ TrackWorker::TrackWorker(int theNumberTools, QWidget *parent)
 	: QDialog(parent)
 {
 	theTracker = NULL;
+	fileProbe = NULL;
+	saveProbe = false;
 	numberTools = theNumberTools;
 	connect(this, SIGNAL(sgn_updateTracker()), parent, SLOT(slot_updateTrackerInfo()));
 }
 
 TrackWorker::~TrackWorker()
 {
+	if (fileProbe != NULL)
+		if (fileProbe->isOpen()) {
+			fileProbe->flush();
+			fileProbe->close();
+		}
+}
+
+void TrackWorker::saveDataProbe(ToolInformationStruct theData) {
+	if (fileProbe == NULL) {
+		qDebug() << fileNameProbe;
+		fileProbe = new QFile(fileNameProbe);
+	}
+	if (!fileProbe->isOpen()) {
+		fileProbe->open(QIODevice::WriteOnly);
+		time.start();
+	}
+
+	QuatRotation *myQuat = new QuatRotation;
+	myQuat->q0 = theData.q0;
+	myQuat->qx = theData.qx;
+	myQuat->qy = theData.qy;
+	myQuat->qz = theData.qz;
+	Rotation *myRot = new Rotation;
+	CvtQuatToEulerRotation(myQuat, myRot);
+	double rotProbe[3] = { myRot->fYaw,myRot->fPitch,myRot->fRoll };
+
+	QTextStream out(fileProbe);
+	out << "\n" << time.elapsed() << "\t" << theData.x << " " << theData.y << " " << theData.z << " " << rotProbe[0] << " " << rotProbe[1] << " " << rotProbe[2] << " " << theData.q0 << " " << theData.qx << " " << theData.qy << " " << theData.qz << "\n";
+	qDebug() << "Record" << endl;
+}
+
+
+void TrackWorker::slot_Tracker_Start_Save_Probe(QString theFileName) {
+	//qDebug() << "slot_Tracker_Start_Save_Probe";
+	fileNameProbe = theFileName;
+	saveProbe = true;
+	//qDebug() << trackerWorker->saveProbe;
+}
+
+void TrackWorker::slot_Tracker_Stop_Save_Probe() {
+	saveProbe = false;
 }
 
 void TrackWorker::slots_run() {
-	//qDebug() << "TrackWorker::slots_run: " << QThread::currentThreadId();
+	qDebug() << "TrackWorker::slots_run: " << QThread::currentThreadId();
 	
 	boost::ptr_vector< Eigen::Quaterniond > quat_Polaris;
 	boost::ptr_vector< Eigen::Vector3d > p;
@@ -32,7 +76,7 @@ void TrackWorker::slots_run() {
 	R.resize(numberTools + 1);
 	T.resize(numberTools + 1);
 	Trans_final.resize(numberTools + 1);
-
+	std::vector<ToolInformationStruct> tools;
 	if (theTracker == NULL) { //SIMULATION
 		//quat_Polaris[1] = Eigen::Quaterniond(1, 0, 0, 0);
 		//quat_Polaris[2] = Eigen::Quaterniond(AngleAxisd(3.14159265358979323846 / 12.0, Vector3d::UnitZ()));
@@ -44,7 +88,16 @@ void TrackWorker::slots_run() {
 		//m_pActor_CItarget->SetUserTransform(pvtk_T_CItarget);
 	}
 	else { // NO SIMULATION
-		std::vector<ToolInformationStruct> tools = theTracker->GetTransformations();
+		tools = theTracker->GetTransformations();
+		if (saveProbe) 
+				saveDataProbe(tools[1]);
+		else if (fileProbe != NULL)
+			if (fileProbe->isOpen()) {
+				fileProbe->flush();
+				fileProbe->close();
+				fileProbe = NULL;
+			}
+
 		for (int toolnum = 1; toolnum <= numberTools; toolnum++) {
 			quat_Polaris[toolnum] = Eigen::Quaterniond(tools[toolnum].q0, tools[toolnum].qx, tools[toolnum].qy, tools[toolnum].qz);
 			p[toolnum](0) = tools[toolnum].x;

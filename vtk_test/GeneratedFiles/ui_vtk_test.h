@@ -36,12 +36,14 @@ public:
     QAction *actionTracker_Init;
     QAction *actionTracker_Stop;
     QAction *actionTracker_Setup_2;
+    QAction *actionActivate3D;
     QWidget *centralWidget;
     QGridLayout *gridLayout_3;
     QGridLayout *gridlayout;
     QMenuBar *menuBar;
     QMenu *menuFile;
     QMenu *menuTracker;
+    QMenu *menu3D;
     QToolBar *mainToolBar;
     QStatusBar *statusBar;
 
@@ -68,6 +70,11 @@ public:
         actionTracker_Stop->setObjectName(QStringLiteral("actionTracker_Stop"));
         actionTracker_Setup_2 = new QAction(vtk_testClass);
         actionTracker_Setup_2->setObjectName(QStringLiteral("actionTracker_Setup_2"));
+        actionActivate3D = new QAction(vtk_testClass);
+        actionActivate3D->setObjectName(QStringLiteral("actionActivate3D"));
+        actionActivate3D->setCheckable(true);
+        actionActivate3D->setChecked(false);
+        actionActivate3D->setEnabled(true);
         centralWidget = new QWidget(vtk_testClass);
         centralWidget->setObjectName(QStringLiteral("centralWidget"));
         gridLayout_3 = new QGridLayout(centralWidget);
@@ -89,6 +96,8 @@ public:
         menuFile->setObjectName(QStringLiteral("menuFile"));
         menuTracker = new QMenu(menuBar);
         menuTracker->setObjectName(QStringLiteral("menuTracker"));
+        menu3D = new QMenu(menuBar);
+        menu3D->setObjectName(QStringLiteral("menu3D"));
         vtk_testClass->setMenuBar(menuBar);
         mainToolBar = new QToolBar(vtk_testClass);
         mainToolBar->setObjectName(QStringLiteral("mainToolBar"));
@@ -99,12 +108,14 @@ public:
 
         menuBar->addAction(menuFile->menuAction());
         menuBar->addAction(menuTracker->menuAction());
+        menuBar->addAction(menu3D->menuAction());
         menuFile->addAction(actionRegister_Patient);
         menuFile->addAction(actionClose);
         menuTracker->addAction(actionTracker_Init);
         menuTracker->addAction(actionTracker_Stop);
         menuTracker->addSeparator();
         menuTracker->addAction(actionTracker_Setup_2);
+        menu3D->addAction(actionActivate3D);
         mainToolBar->addAction(actionDemo);
         mainToolBar->addAction(actionCenter_Target);
 
@@ -126,8 +137,10 @@ public:
         actionTracker_Init->setText(QApplication::translate("vtk_testClass", "Init", 0));
         actionTracker_Stop->setText(QApplication::translate("vtk_testClass", "Stop", 0));
         actionTracker_Setup_2->setText(QApplication::translate("vtk_testClass", "Setup", 0));
+        actionActivate3D->setText(QApplication::translate("vtk_testClass", "Activate", 0));
         menuFile->setTitle(QApplication::translate("vtk_testClass", "File", 0));
         menuTracker->setTitle(QApplication::translate("vtk_testClass", "Tracker", 0));
+        menu3D->setTitle(QApplication::translate("vtk_testClass", "3D", 0));
     } // retranslateUi
 
 };

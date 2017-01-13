@@ -60,8 +60,15 @@
     <addaction name="separator"/>
     <addaction name="actionTracker_Setup_2"/>
    </widget>
+   <widget class="QMenu" name="menu3D">
+    <property name="title">
+     <string>3D</string>
+    </property>
+    <addaction name="actionActivate3D"/>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuTracker"/>
+   <addaction name="menu3D"/>
   </widget>
   <widget class="QToolBar" name="mainToolBar">
    <attribute name="toolBarArea">
@@ -117,6 +124,20 @@
   <action name="actionTracker_Setup_2">
    <property name="text">
     <string>Setup</string>
+   </property>
+  </action>
+  <action name="actionActivate3D">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>false</bool>
+   </property>
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Activate</string>
    </property>
   </action>
  </widget>

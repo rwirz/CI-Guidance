@@ -55,13 +55,14 @@ vtk_test::vtk_test(QWidget *parent)
 	: QMainWindow(parent),
 	m_time(0),
 	m_frames(0),
-	flag_SetTarget(FALSE),
-	m_CItarget_transform(Matrix4d::Identity()),
+	//flag_SetTarget(FALSE),
+	//m_CItarget_transform(Matrix4d::Identity()),
 	m_CItool_transform(Matrix4d::Identity()),
 	m_probe_transform(Matrix4d::Identity())
 {
 	pDemo_Widget = NULL;
-	pDatalogFile = NULL;
+	//pDatalogFile = NULL;
+	forcepsFile = NULL;
 	pTrackerSetup = NULL;
 	m_tracker = NULL;
 
@@ -79,32 +80,32 @@ vtk_test::vtk_test(QWidget *parent)
 	
 
 	// setup top view
-	m_pQVTK_top= new QVTKWidget(this);
-	ui.gridlayout->addWidget(m_pQVTK_top,0,1,1,1,0);		// create QT widget
+	//m_pQVTK_top= new QVTKWidget(this);
+	//ui.gridlayout->addWidget(m_pQVTK_top,0,1,1,1,0);		// create QT widget
 	
 	// setup top inset
-	m_pQVTK_top_inset = new QVTKWidget(this);
-	ui.gridlayout->addWidget(m_pQVTK_top_inset, 0, 1, 1, 1, Qt::AlignBottom | Qt::AlignRight);
+	//m_pQVTK_top_inset = new QVTKWidget(this);
+	//ui.gridlayout->addWidget(m_pQVTK_top_inset, 0, 1, 1, 1, Qt::AlignBottom | Qt::AlignRight);
 
 	// setup oblique view
 	m_pQVTK_oblique = new QVTKWidget(this);
 	ui.gridlayout->addWidget(m_pQVTK_oblique,0,2,1,1,0);
 
 	// setup front view
-	m_pQVTK_front = new QVTKWidget(this);
-	ui.gridlayout->addWidget(m_pQVTK_front,1,1,1,1,0);
+	//m_pQVTK_front = new QVTKWidget(this);
+	//ui.gridlayout->addWidget(m_pQVTK_front,1,1,1,1,0);
 
 	// setup front inset
-	m_pQVTK_front_inset = new QVTKWidget(this);
-	ui.gridlayout->addWidget(m_pQVTK_front_inset, 1, 1, 1, 1, Qt::AlignBottom | Qt::AlignRight);
+	//m_pQVTK_front_inset = new QVTKWidget(this);
+	//ui.gridlayout->addWidget(m_pQVTK_front_inset, 1, 1, 1, 1, Qt::AlignBottom | Qt::AlignRight);
 
 	// setup right side view
-	m_pQVTK_side = new QVTKWidget(this);
-	ui.gridlayout->addWidget(m_pQVTK_side,1,2,1,1,0);
+	//m_pQVTK_side = new QVTKWidget(this);
+	//ui.gridlayout->addWidget(m_pQVTK_side,1,2,1,1,0);
 
 	// setup right side inset
-	m_pQVTK_side_inset = new QVTKWidget(this);
-	ui.gridlayout->addWidget(m_pQVTK_side_inset, 1, 2, 1, 1, Qt::AlignBottom | Qt::AlignRight);
+	//m_pQVTK_side_inset = new QVTKWidget(this);
+	//ui.gridlayout->addWidget(m_pQVTK_side_inset, 1, 2, 1, 1, Qt::AlignBottom | Qt::AlignRight);
 
 	// setup timers
 	qDebug() << "Main::main: " << QThread::currentThreadId();
@@ -115,8 +116,11 @@ vtk_test::vtk_test(QWidget *parent)
 	trackerWorker = new TrackWorker(NUM_TRACKED_TOOLS,this);
 	m_timer.moveToThread(trackerThread);
 	trackerWorker->connect(&m_timer, SIGNAL(timeout()), SLOT(slots_run()), Qt::DirectConnection);
+	trackerWorker->connect(iw, SIGNAL(sgn_ProveSaveInit(QString)), SLOT(slot_Tracker_Start_Save_Probe(QString)), Qt::DirectConnection);
+	trackerWorker->connect(iw, SIGNAL(sgn_ProveSaveStop()), SLOT(slot_Tracker_Stop_Save_Probe()), Qt::DirectConnection);
+	//trackerWorker->connect(this, SIGNAL(sgn_StopTracking()), SLOT(slot_Tracker_Stop()), Q);
 	m_timer.connect(trackerThread, SIGNAL(started()), SLOT(start()));
-	
+	m_timer.connect(this, SIGNAL(sgn_StopTracking()), SLOT(stop()));
 
 	m_frameRateTimer.setInterval(FRAME_RATE_UPDATE_INTERVAL);
 	m_frameRateTimer.setSingleShot(false);
@@ -135,13 +139,15 @@ vtk_test::vtk_test(QWidget *parent)
 	connect(ui.actionDemo, SIGNAL(triggered()), this, SLOT(slot_Demo()));
 	connect(this, SIGNAL(sgn_NewProbePosition(double,double,double)), iw, SLOT(slot_NewProbePosition(double,double,double)));
 	connect(this, SIGNAL(sgn_NewCIPosition(double,double,double)), iw, SLOT(slot_NewCIPosition(double,double,double)));
-	connect(this, SIGNAL(sgn_NewMagPosition(double,double,double)), iw, SLOT(slot_NewMagPosition(double,double,double)));
+	//connect(this, SIGNAL(sgn_NewMagPosition(double,double,double)), iw, SLOT(slot_NewMagPosition(double,double,double)));
 	connect(iw, SIGNAL(sgn_CenterView(QString)), this, SLOT(slot_CenterView(QString)));
 	connect(ui.actionCenter_Target, SIGNAL(triggered()), this, SLOT(slot_CenterTarget()));
-	connect(this, SIGNAL(sgn_err(double,double)), iw, SLOT(slot_update_err(double,double)));
-	connect(this, SIGNAL(sgn_err_ang(double)), iw, SLOT(slot_update_err_theta(double)));
+	//connect(this, SIGNAL(sgn_err(double,double)), iw, SLOT(slot_update_err(double,double)));
+	//connect(this, SIGNAL(sgn_err_ang(double)), iw, SLOT(slot_update_err_theta(double)));
 	connect(ui.actionTracker_Init, SIGNAL(triggered()), this, SLOT(slot_Tracker_Init()));
 	connect(ui.actionTracker_Stop, SIGNAL(triggered()), this, SLOT(slot_Tracker_Stop()));
+	connect(ui.actionActivate3D, SIGNAL(triggered()), this, SLOT(slot_3d_activate()));
+	//connect(ui.butt)
 
 	//Tracker GUI
 	ui.actionTracker_Stop->setEnabled(false);
@@ -151,6 +157,7 @@ vtk_test::vtk_test(QWidget *parent)
 
 	//InitiVTK
 	InitVTK();
+	//QMainWindow::showFullScreen();
 }
 
 vtk_test::~vtk_test()
@@ -159,49 +166,52 @@ vtk_test::~vtk_test()
 	if (isTracking)
 		m_tracker->StopTracking();
 	
-	// Close file
-	if(pDatalogFile != NULL){
-		if(pDatalogFile->isOpen()){
-			pDatalogFile->close();
-		}
-	}
+	//// Close file
+	//if(pDatalogFile != NULL){
+	//	if(pDatalogFile->isOpen()){
+	//		pDatalogFile->close();
+	//	}
+	//}
 }
 
 void vtk_test::InitVTK() {
 
-	m_pRenderer_top = vtkSmartPointer<vtkRenderer>::New();  // setup VTK renderer
-	m_pQVTK_top->setMinimumSize((int)(3 * dpi), (int)(3 * dpi));
-	m_pQVTK_top->GetRenderWindow()->AddRenderer(m_pRenderer_top);
-	m_pRenderer_top->SetBackground(0.8, 0.8, 0.8);
-	m_pRenderer_top->SetGradientBackground(true);
+	//m_pRenderer_top = vtkSmartPointer<vtkRenderer>::New();  // setup VTK renderer
+	//m_pQVTK_top->setMinimumSize((int)(3 * dpi), (int)(3 * dpi));
+	//m_pQVTK_top->GetRenderWindow()->AddRenderer(m_pRenderer_top);
+	//m_pRenderer_top->SetBackground(0.8, 0.8, 0.8);
+	//m_pRenderer_top->SetGradientBackground(true);
 
-	vtkSmartPointer<vtkCamera> camera_top = vtkSmartPointer<vtkCamera>::New();
-	camera_top->SetPosition(0, 100, 0); // XZ Plane
-	camera_top->SetFocalPoint(0, 0, 0);
-	camera_top->SetViewUp(0, 0, -1);
-	camera_top->SetClippingRange(-1000, 1000); // based on tracker workspace limits in x
-	m_pRenderer_top->SetActiveCamera(camera_top);
+	//vtkSmartPointer<vtkCamera> camera_top = vtkSmartPointer<vtkCamera>::New();
+	//camera_top->SetPosition(0, 100, 0); // XZ Plane
+	//camera_top->SetFocalPoint(0, 0, 0);
+	//camera_top->SetViewUp(0, 0, -1);
+	//camera_top->SetClippingRange(-1000, 1000); // based on tracker workspace limits in x
+	//m_pRenderer_top->SetActiveCamera(camera_top);
 
-	m_pRenderer_top_inset = vtkSmartPointer<vtkRenderer>::New();
+	/*m_pRenderer_top_inset = vtkSmartPointer<vtkRenderer>::New();
 	m_pQVTK_top_inset->setMinimumSize((int)(1 * dpi), (int)(1 * dpi));
 	m_pQVTK_top_inset->setMaximumSize((int)(1.5*dpi), (int)(1.5*dpi));
 	m_pQVTK_top_inset->GetRenderWindow()->AddRenderer(m_pRenderer_top_inset);
 	m_pRenderer_top_inset->SetBackground(0.8, 0.8, 0.8);
-	m_pRenderer_top_inset->SetGradientBackground(true);
+	m_pRenderer_top_inset->SetGradientBackground(true);*/
 
-	vtkSmartPointer<vtkCamera> camera_top_inset = vtkSmartPointer<vtkCamera>::New();
-	int inset_dist = 20;
-	camera_top_inset->SetPosition(0, inset_dist, 0); // XZ Plane
-	camera_top_inset->SetFocalPoint(0, 0, 0);
-	camera_top_inset->SetViewUp(0, 0, -1);
-	camera_top_inset->SetClippingRange(-1000, 1000); // based on tracker workspace limits in x
-	m_pRenderer_top_inset->SetActiveCamera(camera_top_inset);
+	//vtkSmartPointer<vtkCamera> camera_top_inset = vtkSmartPointer<vtkCamera>::New();
+	//int inset_dist = 20;
+	//camera_top_inset->SetPosition(0, inset_dist, 0); // XZ Plane
+	//camera_top_inset->SetFocalPoint(0, 0, 0);
+	//camera_top_inset->SetViewUp(0, 0, -1);
+	//camera_top_inset->SetClippingRange(-1000, 1000); // based on tracker workspace limits in x
+	//m_pRenderer_top_inset->SetActiveCamera(camera_top_inset);
 
 	m_pRenderer_oblique = vtkSmartPointer<vtkRenderer>::New();
 	m_pQVTK_oblique->setMinimumSize((int)(3 * dpi), (int)(3 * dpi));
 	m_pQVTK_oblique->GetRenderWindow()->AddRenderer(m_pRenderer_oblique);
 	m_pRenderer_oblique->SetBackground(0.8, 0.8, 0.8);
 	m_pRenderer_oblique->SetGradientBackground(true);
+	m_pQVTK_oblique->GetRenderWindow()->StereoCapableWindowOff();
+	m_pQVTK_oblique->GetRenderWindow()->StereoRenderOff();
+	
 
 	vtkSmartPointer<vtkCamera> camera_oblique = vtkSmartPointer<vtkCamera>::New();
 	camera_oblique->SetPosition(0, 100, 0); // XZ Plane
@@ -210,99 +220,116 @@ void vtk_test::InitVTK() {
 	camera_oblique->SetClippingRange(-1000, 1000); // based on tracker workspace limits in x
 	m_pRenderer_oblique->SetActiveCamera(camera_oblique);
 
-	m_pRenderer_front = vtkSmartPointer<vtkRenderer>::New();
-	m_pQVTK_front->setMinimumSize((int)(3 * dpi), (int)(3 * dpi));
-	m_pQVTK_front->GetRenderWindow()->AddRenderer(m_pRenderer_front);
-	m_pRenderer_front->SetBackground(0.8, 0.8, 0.8);
-	m_pRenderer_front->SetGradientBackground(true);
+	//m_pRenderer_front = vtkSmartPointer<vtkRenderer>::New();
+	//m_pQVTK_front->setMinimumSize((int)(3 * dpi), (int)(3 * dpi));
+	//m_pQVTK_front->GetRenderWindow()->AddRenderer(m_pRenderer_front);
+	//m_pRenderer_front->SetBackground(0.8, 0.8, 0.8);
+	//m_pRenderer_front->SetGradientBackground(true);
 
-	vtkSmartPointer<vtkCamera> camera_front = vtkSmartPointer<vtkCamera>::New();
-	camera_front->SetPosition(0, 0, 500); // XY Plane
-	camera_front->SetFocalPoint(0, 0, 0);
-	camera_front->SetViewUp(0, 1, 0);
-	camera_front->SetClippingRange(-100, 3500); // based on tracker workspace limits in z
-	m_pRenderer_front->SetActiveCamera(camera_front);
+	//vtkSmartPointer<vtkCamera> camera_front = vtkSmartPointer<vtkCamera>::New();
+	//camera_front->SetPosition(0, 0, 500); // XY Plane
+	//camera_front->SetFocalPoint(0, 0, 0);
+	//camera_front->SetViewUp(0, 1, 0);
+	//camera_front->SetClippingRange(-100, 3500); // based on tracker workspace limits in z
+	//m_pRenderer_front->SetActiveCamera(camera_front);
 
-	m_pRenderer_front_inset = vtkSmartPointer<vtkRenderer>::New();
-	m_pQVTK_front_inset->setMinimumSize((int)(1 * dpi), (int)(1 * dpi));
-	m_pQVTK_front_inset->setMaximumSize((int)(1.5*dpi), (int)(1.5*dpi));
-	m_pQVTK_front_inset->GetRenderWindow()->AddRenderer(m_pRenderer_front_inset);
-	m_pRenderer_front_inset->SetBackground(0.8, 0.8, 0.8);
-	m_pRenderer_front_inset->SetGradientBackground(true);
+	//m_pRenderer_front_inset = vtkSmartPointer<vtkRenderer>::New();
+	//m_pQVTK_front_inset->setMinimumSize((int)(1 * dpi), (int)(1 * dpi));
+	//m_pQVTK_front_inset->setMaximumSize((int)(1.5*dpi), (int)(1.5*dpi));
+	//m_pQVTK_front_inset->GetRenderWindow()->AddRenderer(m_pRenderer_front_inset);
+	//m_pRenderer_front_inset->SetBackground(0.8, 0.8, 0.8);
+	//m_pRenderer_front_inset->SetGradientBackground(true);
 
-	vtkSmartPointer<vtkCamera> camera_front_inset = vtkSmartPointer<vtkCamera>::New();
-	camera_front_inset->SetPosition(0, 0, inset_dist); // XY Plane
-	camera_front_inset->SetFocalPoint(0, 0, 0);
-	camera_front_inset->SetViewUp(0, 1, 0);
-	camera_front_inset->SetClippingRange(-100, 3500); // based on tracker workspace limits in z
-	m_pRenderer_front_inset->SetActiveCamera(camera_front_inset);
+	//vtkSmartPointer<vtkCamera> camera_front_inset = vtkSmartPointer<vtkCamera>::New();
+	//camera_front_inset->SetPosition(0, 0, inset_dist); // XY Plane
+	//camera_front_inset->SetFocalPoint(0, 0, 0);
+	//camera_front_inset->SetViewUp(0, 1, 0);
+	//camera_front_inset->SetClippingRange(-100, 3500); // based on tracker workspace limits in z
+	//m_pRenderer_front_inset->SetActiveCamera(camera_front_inset);
 
-	m_pRenderer_side = vtkSmartPointer<vtkRenderer>::New();
-	m_pQVTK_side->setMinimumSize((int)(3 * dpi), (int)(3 * dpi));
-	m_pQVTK_side->GetRenderWindow()->AddRenderer(m_pRenderer_side);
-	m_pRenderer_side->SetBackground(0.8, 0.8, 0.8);
-	m_pRenderer_side->SetGradientBackground(true);
+	//m_pRenderer_side = vtkSmartPointer<vtkRenderer>::New();
+	//m_pQVTK_side->setMinimumSize((int)(3 * dpi), (int)(3 * dpi));
+	//m_pQVTK_side->GetRenderWindow()->AddRenderer(m_pRenderer_side);
+	//m_pRenderer_side->SetBackground(0.8, 0.8, 0.8);
+	//m_pRenderer_side->SetGradientBackground(true);
 
-	vtkSmartPointer<vtkCamera> camera_side = vtkSmartPointer<vtkCamera>::New();
-	camera_side->SetPosition(500, 0, 0); // YZ Plane
-	camera_side->SetFocalPoint(0, 0, 0);
-	camera_side->SetViewUp(0, 1, 0);
-	camera_side->SetClippingRange(-1000, 1000); // based on tracker workspace limits in y
-	m_pRenderer_side->SetActiveCamera(camera_side);
+	//vtkSmartPointer<vtkCamera> camera_side = vtkSmartPointer<vtkCamera>::New();
+	//camera_side->SetPosition(500, 0, 0); // YZ Plane
+	//camera_side->SetFocalPoint(0, 0, 0);
+	//camera_side->SetViewUp(0, 1, 0);
+	//camera_side->SetClippingRange(-1000, 1000); // based on tracker workspace limits in y
+	//m_pRenderer_side->SetActiveCamera(camera_side);
 
-	m_pRenderer_side_inset = vtkSmartPointer<vtkRenderer>::New();
-	m_pQVTK_side_inset->setMinimumSize((int)(1 * dpi), (int)(1 * dpi));
-	m_pQVTK_side_inset->setMaximumSize((int)(1.5*dpi), (int)(1.5*dpi));
-	m_pQVTK_side_inset->GetRenderWindow()->AddRenderer(m_pRenderer_side_inset);
-	m_pRenderer_side_inset->SetBackground(0.8, 0.8, 0.8);
-	m_pRenderer_side_inset->SetGradientBackground(true);
+	//m_pRenderer_side_inset = vtkSmartPointer<vtkRenderer>::New();
+	//m_pQVTK_side_inset->setMinimumSize((int)(1 * dpi), (int)(1 * dpi));
+	//m_pQVTK_side_inset->setMaximumSize((int)(1.5*dpi), (int)(1.5*dpi));
+	//m_pQVTK_side_inset->GetRenderWindow()->AddRenderer(m_pRenderer_side_inset);
+	//m_pRenderer_side_inset->SetBackground(0.8, 0.8, 0.8);
+	//m_pRenderer_side_inset->SetGradientBackground(true);
 
-	vtkSmartPointer<vtkCamera> camera_side_inset = vtkSmartPointer<vtkCamera>::New();
-	camera_side_inset->SetPosition(inset_dist, 0, 0); // YZ Plane
-	camera_side_inset->SetFocalPoint(0, 0, 0);
-	camera_side_inset->SetViewUp(0, 1, 0);
-	camera_side_inset->SetClippingRange(-1000, 1000); // based on tracker workspace limits in y
-	m_pRenderer_side_inset->SetActiveCamera(camera_side_inset);
+	//vtkSmartPointer<vtkCamera> camera_side_inset = vtkSmartPointer<vtkCamera>::New();
+	//camera_side_inset->SetPosition(inset_dist, 0, 0); // YZ Plane
+	//camera_side_inset->SetFocalPoint(0, 0, 0);
+	//camera_side_inset->SetViewUp(0, 1, 0);
+	//camera_side_inset->SetClippingRange(-1000, 1000); // based on tracker workspace limits in y
+	//m_pRenderer_side_inset->SetActiveCamera(camera_side_inset);
 
 }
 
 void vtk_test::Initialize()
 {
 	double color1[] = { 0.8,0.3,0.3 };
-	vtkSmartPointer<vtkActor> pActor_CI_target = LoadOBJFile(QString::fromLocal8Bit("C:\\Users\\wirzgor\\Source\\Repos\\CI-Guidance\\x64\\Debug\\insertion_tool_wtarget.obj"), 0.3, color1);
-	m_pRenderer_top->AddActor(pActor_CI_target);
-	m_pRenderer_top_inset->AddActor(pActor_CI_target);
-	m_pRenderer_oblique->AddActor(pActor_CI_target);
-	m_pRenderer_front->AddActor(pActor_CI_target);
-	m_pRenderer_front_inset->AddActor(pActor_CI_target);
-	m_pRenderer_side->AddActor(pActor_CI_target);
-	m_pRenderer_side_inset->AddActor(pActor_CI_target);
+//	vtkSmartPointer<vtkActor> pActor_CI_target = LoadOBJFile(QString::fromLocal8Bit("C:\\Users\\wirzgor\\Source\\Repos\\CI-Guidance\\x64\\Debug\\insertion_tool_wtarget.obj"), 0.3, color1);
+//	m_pRenderer_top->AddActor(pActor_CI_target);
+////	m_pRenderer_top_inset->AddActor(pActor_CI_target);
+//	m_pRenderer_oblique->AddActor(pActor_CI_target);
+//	m_pRenderer_front->AddActor(pActor_CI_target);
+//	//m_pRenderer_front_inset->AddActor(pActor_CI_target);
+//	m_pRenderer_side->AddActor(pActor_CI_target);
+//	//m_pRenderer_side_inset->AddActor(pActor_CI_target);
 
 	double color2[] = { 0.3,1.0,0.3 };
-	vtkSmartPointer<vtkActor> pActor_CI_tool = LoadOBJFile(QString::fromLocal8Bit("C:\\Users\\wirzgor\\Source\\Repos\\CI-Guidance\\x64\\Debug\\insertion_tool_wtarget.obj"), 1.0, color2);
-	m_pRenderer_top->AddActor(pActor_CI_tool);
-	m_pRenderer_top_inset->AddActor(pActor_CI_tool);
+	vtkSmartPointer<vtkActor> pActor_CI_tool = LoadSTLFile(QString::fromLocal8Bit("C:\\Users\\wirzgor\\Source\\Repos\\CI-Guidance\\x64\\Debug\\blood.stl"), 1.0, color2);
+//	m_pRenderer_top->AddActor(pActor_CI_tool);
+	//m_pRenderer_top_inset->AddActor(pActor_CI_tool);
 	m_pRenderer_oblique->AddActor(pActor_CI_tool);
-	m_pRenderer_front->AddActor(pActor_CI_tool);
-	m_pRenderer_front_inset->AddActor(pActor_CI_tool);
-	m_pRenderer_side->AddActor(pActor_CI_tool);
-	m_pRenderer_side_inset->AddActor(pActor_CI_tool);
+	//m_pRenderer_front->AddActor(pActor_CI_tool);
+	//m_pRenderer_front_inset->AddActor(pActor_CI_tool);
+	//m_pRenderer_side->AddActor(pActor_CI_tool);
+	//m_pRenderer_side_inset->AddActor(pActor_CI_tool);
 
 	double color3[] = { 0.3,0.3,1 };
 	vtkSmartPointer<vtkActor> pActor_probe = LoadOBJFile(QString::fromLocal8Bit("C:\\Users\\wirzgor\\Source\\Repos\\CI-Guidance\\x64\\Debug\\polaris_probe.obj"), 1.0, color3);
 	//vtkSmartPointer<vtkActor> pActor_probe = LoadSTLFile(QString::fromLocal8Bit("C:\\Users\\wirzgor\\Source\\Repos\\CI-Guidance\\x64\\Debug\\patient.stl"), 1.0, color3);
-	m_pRenderer_top->AddActor(pActor_probe);
+	//m_pRenderer_top->AddActor(pActor_probe);
 	m_pRenderer_oblique->AddActor(pActor_probe);
-	m_pRenderer_front->AddActor(pActor_probe);
-	m_pRenderer_side->AddActor(pActor_probe);
+	//m_pRenderer_front->AddActor(pActor_probe);
+	//m_pRenderer_side->AddActor(pActor_probe);
 
-	m_pActor_CItarget = pActor_CI_target;
+	//m_pActor_CItarget = pActor_CI_target;
 	m_pActor_CItool = pActor_CI_tool;
 	m_pActor_probe = pActor_probe;
 
 	slot_CenterView(QString("centerCItool"));
 
 	
+}
+
+void vtk_test::slot_3d_activate() {
+	if (ui.actionActivate3D->isChecked())
+	{
+		ui.actionActivate3D->setText("Desactivate");
+		m_pQVTK_oblique->GetRenderWindow()->StereoCapableWindowOn();
+		m_pQVTK_oblique->GetRenderWindow()->SetStereoTypeToCrystalEyes();
+		m_pQVTK_oblique->GetRenderWindow()->StereoRenderOn();
+		//m_pQVTK_oblique->GetRenderWindow()->FullScreenOn();
+	}
+	else {
+		ui.actionActivate3D->setText("Activate");
+		m_pQVTK_oblique->GetRenderWindow()->StereoCapableWindowOff();
+		m_pQVTK_oblique->GetRenderWindow()->StereoRenderOff();
+	}
+	m_pQVTK_oblique->GetRenderWindow()->Render();
 }
 
 void vtk_test::slot_updateTrackerInfo()
@@ -387,20 +414,20 @@ void vtk_test::slot_updateTrackerInfo()
 	m_pActor_CItool->SetUserTransform(pvtk_T_CItool);
 
 	// Update alignment error
-	Update_err();
+//	Update_err();
 
-	if (flag_SetTarget)
-	{
-		// update target actor
-		m_CItarget_transform = m_CItool_transform;
-		m_pActor_CItarget->SetUserTransform(pvtk_T_CItool);
+	//if (flag_SetTarget)
+	//{
+	//	// update target actor
+	//	m_CItarget_transform = m_CItool_transform;
+	//	m_pActor_CItarget->SetUserTransform(pvtk_T_CItool);
 
-		// recenter view on target
-		slot_CenterView(QString("centerCItarget"));
+	//	// recenter view on target
+	//	slot_CenterView(QString("centerCItarget"));
 
-		// reset flag
-		flag_SetTarget = FALSE;
-	}
+	//	// reset flag
+	//	flag_SetTarget = FALSE;
+	//}
 	
 	// update QVTKWidgets
 	needRefresh = true;
@@ -418,13 +445,13 @@ void vtk_test::slot_updateTrackerInfo()
 
 void vtk_test::refreshScreen() {
 	if (needRefresh) {
-		m_pQVTK_top->update();
-		m_pQVTK_top_inset->update();
+		//m_pQVTK_top->update();
+		//m_pQVTK_top_inset->update();
 		m_pQVTK_oblique->update();
-		m_pQVTK_front->update();
-		m_pQVTK_front_inset->update();
-		m_pQVTK_side->update();
-		m_pQVTK_side_inset->update();
+		//m_pQVTK_front->update();
+		//m_pQVTK_front_inset->update();
+		//m_pQVTK_side->update();
+		//m_pQVTK_side_inset->update();
 	}
 	needRefresh = false;
 }
@@ -530,7 +557,7 @@ void vtk_test::refreshScreen() {
 void vtk_test::resizeEvent(QResizeEvent *event)
 {
 	QWidget::resizeEvent(event);
-	m_frameRateLabel.setGeometry( m_pQVTK_top->geometry() );
+	m_frameRateLabel.setGeometry( m_pQVTK_oblique->geometry() );
 }
 
 void vtk_test::slot_onFrameRateTimer()
@@ -550,14 +577,14 @@ void vtk_test::slot_CenterView(QString senderObjName)
 {
 	double cam_offset = 20; // distance to offset camera from focal point
 
-	double targetx = m_CItarget_transform(0,3);
-	double targety = m_CItarget_transform(1,3);
-	double targetz = m_CItarget_transform(2,3);
+//	double targetx = m_CItarget_transform(0,3);
+//	double targety = m_CItarget_transform(1,3);
+//	double targetz = m_CItarget_transform(2,3);
 
 	// ensure view orientations are correct
-	  m_pRenderer_top->GetActiveCamera()->SetViewUp(0, 0, -1);
-	m_pRenderer_front->GetActiveCamera()->SetViewUp(0, 1, 0);
-	 m_pRenderer_side->GetActiveCamera()->SetViewUp(0, 1, 0);
+//	  m_pRenderer_top->GetActiveCamera()->SetViewUp(0, 0, -1);
+//	m_pRenderer_front->GetActiveCamera()->SetViewUp(0, 1, 0);
+//	 m_pRenderer_side->GetActiveCamera()->SetViewUp(0, 1, 0);
 
 	// determine sender
 	if (senderObjName == "centerCItool")
@@ -566,17 +593,17 @@ void vtk_test::slot_CenterView(QString senderObjName)
 		double tooly = m_CItool_transform(1,3);
 		double toolz = m_CItool_transform(2,3);
 
-		m_pRenderer_top->GetActiveCamera()->SetPosition(toolx, tooly+cam_offset, toolz);
-		m_pRenderer_top->GetActiveCamera()->SetFocalPoint(toolx, tooly, toolz);
-		m_pRenderer_top->ResetCamera(m_pActor_CItool->GetBounds());
+		//m_pRenderer_top->GetActiveCamera()->SetPosition(toolx, tooly+cam_offset, toolz);
+		//m_pRenderer_top->GetActiveCamera()->SetFocalPoint(toolx, tooly, toolz);
+		//m_pRenderer_top->ResetCamera(m_pActor_CItool->GetBounds());
 
-		m_pRenderer_front->GetActiveCamera()->SetPosition(toolx, tooly, toolz+cam_offset);
-		m_pRenderer_front->GetActiveCamera()->SetFocalPoint(toolx, tooly, toolz);
-		m_pRenderer_front->ResetCamera(m_pActor_CItool->GetBounds());
-		
-		m_pRenderer_side->GetActiveCamera()->SetPosition(toolx+cam_offset, tooly, toolz);
-		m_pRenderer_side->GetActiveCamera()->SetFocalPoint(toolx, tooly, toolz);
-		m_pRenderer_side->ResetCamera(m_pActor_CItool->GetBounds());
+		//m_pRenderer_front->GetActiveCamera()->SetPosition(toolx, tooly, toolz+cam_offset);
+		//m_pRenderer_front->GetActiveCamera()->SetFocalPoint(toolx, tooly, toolz);
+		//m_pRenderer_front->ResetCamera(m_pActor_CItool->GetBounds());
+		//
+		//m_pRenderer_side->GetActiveCamera()->SetPosition(toolx+cam_offset, tooly, toolz);
+		//m_pRenderer_side->GetActiveCamera()->SetFocalPoint(toolx, tooly, toolz);
+		//m_pRenderer_side->ResetCamera(m_pActor_CItool->GetBounds());
 
 		m_pRenderer_oblique->GetActiveCamera()->SetFocalPoint(toolx, tooly, toolz);
 		m_pRenderer_oblique->ResetCamera(m_pActor_CItool->GetBounds());
@@ -586,22 +613,22 @@ void vtk_test::slot_CenterView(QString senderObjName)
 		double probex = m_probe_transform(0, 3);
 		double probey = m_probe_transform(1, 3);
 		double probez = m_probe_transform(2, 3);
-		m_pRenderer_top->GetActiveCamera()->SetPosition(probex, probey + cam_offset, probez);
-		m_pRenderer_top->GetActiveCamera()->SetFocalPoint(probex, probey, probez);
-		m_pRenderer_top->ResetCamera(m_pActor_probe->GetBounds());
+		//m_pRenderer_top->GetActiveCamera()->SetPosition(probex, probey + cam_offset, probez);
+		//m_pRenderer_top->GetActiveCamera()->SetFocalPoint(probex, probey, probez);
+		//m_pRenderer_top->ResetCamera(m_pActor_probe->GetBounds());
 
-		m_pRenderer_front->GetActiveCamera()->SetPosition(probex, probey, probez + cam_offset);
-		m_pRenderer_front->GetActiveCamera()->SetFocalPoint(probex, probey, probez);
-		m_pRenderer_front->ResetCamera(m_pActor_probe->GetBounds());
+		//m_pRenderer_front->GetActiveCamera()->SetPosition(probex, probey, probez + cam_offset);
+		//m_pRenderer_front->GetActiveCamera()->SetFocalPoint(probex, probey, probez);
+		//m_pRenderer_front->ResetCamera(m_pActor_probe->GetBounds());
 
-		m_pRenderer_side->GetActiveCamera()->SetPosition(probex + cam_offset, probey, probez);
-		m_pRenderer_side->GetActiveCamera()->SetFocalPoint(probex, probey, probez);
-		m_pRenderer_side->ResetCamera(m_pActor_probe->GetBounds());
+		//m_pRenderer_side->GetActiveCamera()->SetPosition(probex + cam_offset, probey, probez);
+		//m_pRenderer_side->GetActiveCamera()->SetFocalPoint(probex, probey, probez);
+		//m_pRenderer_side->ResetCamera(m_pActor_probe->GetBounds());
 
 		m_pRenderer_oblique->GetActiveCamera()->SetFocalPoint(probex, probey, probez);
 		m_pRenderer_oblique->ResetCamera(m_pActor_probe->GetBounds());
 	}
-	else if (senderObjName == "centerCItarget")
+	/*else if (senderObjName == "centerCItarget")
 	{
 		m_pRenderer_top->GetActiveCamera()->SetPosition(targetx, targety+cam_offset, targetz);
 		m_pRenderer_top->GetActiveCamera()->SetFocalPoint(targetx, targety,	targetz);
@@ -616,24 +643,22 @@ void vtk_test::slot_CenterView(QString senderObjName)
 		m_pRenderer_side->ResetCamera(m_pActor_CItarget->GetBounds());
 
 		m_pRenderer_oblique->ResetCamera(m_pActor_CItarget->GetBounds());
-	}
-	else
-	{
-		return; // no match for sender name
-	}
+	}*/
 
-	// center inset views (always centered on target)
-	  m_pRenderer_top_inset->GetActiveCamera()->SetPosition(targetx, targety+cam_offset, targetz);
-	m_pRenderer_front_inset->GetActiveCamera()->SetPosition(targetx, targety, targetz+cam_offset);
-	 m_pRenderer_side_inset->GetActiveCamera()->SetPosition(targetx+cam_offset, targety, targetz);
 
-	  m_pRenderer_top_inset->GetActiveCamera()->SetFocalPoint(targetx, targety, targetz);
-	m_pRenderer_front_inset->GetActiveCamera()->SetFocalPoint(targetx, targety, targetz);
-	 m_pRenderer_side_inset->GetActiveCamera()->SetFocalPoint(targetx, targety, targetz);
+	//// center inset views (always centered on target)
+	//  m_pRenderer_top_inset->GetActiveCamera()->SetPosition(targetx, targety+cam_offset, targetz);
+	//m_pRenderer_front_inset->GetActiveCamera()->SetPosition(targetx, targety, targetz+cam_offset);
+	// m_pRenderer_side_inset->GetActiveCamera()->SetPosition(targetx+cam_offset, targety, targetz);
 
-	  m_pRenderer_top_inset->GetActiveCamera()->SetViewUp(0, 0, -1);
-	m_pRenderer_front_inset->GetActiveCamera()->SetViewUp(0, 1, 0);
-	 m_pRenderer_side_inset->GetActiveCamera()->SetViewUp(0, 1, 0);
+	//  m_pRenderer_top_inset->GetActiveCamera()->SetFocalPoint(targetx, targety, targetz);
+	//m_pRenderer_front_inset->GetActiveCamera()->SetFocalPoint(targetx, targety, targetz);
+	// m_pRenderer_side_inset->GetActiveCamera()->SetFocalPoint(targetx, targety, targetz);
+
+	//  m_pRenderer_top_inset->GetActiveCamera()->SetViewUp(0, 0, -1);
+	//m_pRenderer_front_inset->GetActiveCamera()->SetViewUp(0, 1, 0);
+	// m_pRenderer_side_inset->GetActiveCamera()->SetViewUp(0, 1, 0);
+	m_pQVTK_oblique->GetRenderWindow()->Render();
 }
 
 void vtk_test::slot_CenterTarget()
@@ -644,11 +669,23 @@ void vtk_test::slot_CenterTarget()
 void vtk_test::slot_Tracker_Stop() {
 	ui.actionTracker_Init->setDisabled(false);
 	ui.actionTracker_Stop->setDisabled(true);
-	//m_timer.stop();
-	//trackerThread->terminate();
-	m_tracker->StopTracking();
 	isTracking = false;
+	//qDebug() << "STOP";
+	emit sgn_StopTracking();
+	QThread::sleep(1);
+	m_tracker->StopTracking();
+	QThread::sleep(1);
 }
+//
+//void vtk_test::slot_Tracker_Start_Save_Probe() {
+//	//qDebug() << "slot_Tracker_Start_Save_Probe";
+//	trackerWorker->saveProbe = true;
+//	//qDebug() << trackerWorker->saveProbe;
+//}
+//
+//void vtk_test::slot_Tracker_Stop_Save_Probe() {
+//	trackerWorker->saveProbe = false;
+//}
 
 void vtk_test::slot_Tracker_Init() {
 	if (m_tracker != NULL)
@@ -675,72 +712,72 @@ void vtk_test::slot_Tracker_Init() {
 		cout << " ERROR! The tracker can not be initialized!" << endl;
 }
 
-void vtk_test::Update_err()
-{
-	// transformation between target (t) and insertion tool (i) = Hti
-	Matrix4d Hti = m_CItarget_transform.inverse().eval() * m_CItool_transform;
+//void vtk_test::Update_err()
+//{
+//	// transformation between target (t) and insertion tool (i) = Hti
+//	Matrix4d Hti = m_CItarget_transform.inverse().eval() * m_CItool_transform;
+//
+//	// Cartesian error in target frame
+//	m_errors.x = Hti(0,3);
+//	m_errors.y = Hti(1,3);
+//	m_errors.z = Hti(2,3);
+//
+//	// errors tangential and perpendicular to trajectory axis (yhat)
+//	Vector2d radial(m_errors.x, m_errors.z);
+//	m_errors.radial = radial.norm();
+//	m_errors.axial = m_errors.y;
+//
+//	// angular error between trajectory axes (y)
+//	// y_i = Hti.block<3,1>(0,1).   dot(y_i,[0;1;0]) = y_i(2) = Hti(1,1)
+//	m_errors.theta = acos(Hti(1, 1)); // [rad]
+//
+//	// Find axis of rotation corresponding to theta
+//	// (orthogonal to y_i and y_t)
+//	Vector3d axis_theta;
+//	if (m_errors.theta == 0.0) // can realistically only occur in simulation
+//	{
+//		axis_theta = Vector3d::UnitX(); // arbitrary because theta = 0, just can't be NAN
+//	}
+//	else
+//	{
+//		axis_theta = Hti.block<3,1>(0,1).cross(Vector3d::UnitY());
+//		axis_theta.normalize();
+//	}
+//
+//	// Rotate to align y axes and make xy planes coplanar
+//	Matrix3d R_theta;
+//	R_theta = AngleAxisd(m_errors.theta, axis_theta);
+//	Matrix3d R_yalign = R_theta*Hti.block<3, 3>(0, 0);
+//
+//	// Find angular error about the y axis
+//	// dot product of x column and xhat is just R_yalign(0,0)
+//	m_errors.phi = acos(R_yalign(0, 0));
+//
+//	/*cout << "CItarget:" << endl << m_CItarget_transform << endl;
+//	cout << "CItool:"	<< endl << m_CItool_transform << endl;
+//	cout << "Hti:"		<< endl << Hti << endl;
+//	cout << "phi = "	<< (m_errors.phi*180.0 / M_PI) << endl;
+//	cout << "theta = "	<< (m_errors.theta*180.0 / M_PI) << endl << endl;*/
+//
+//	emit sgn_err(m_errors.radial,100);
+//	emit sgn_err_ang(m_errors.theta);
+//}
 
-	// Cartesian error in target frame
-	m_errors.x = Hti(0,3);
-	m_errors.y = Hti(1,3);
-	m_errors.z = Hti(2,3);
-
-	// errors tangential and perpendicular to trajectory axis (yhat)
-	Vector2d radial(m_errors.x, m_errors.z);
-	m_errors.radial = radial.norm();
-	m_errors.axial = m_errors.y;
-
-	// angular error between trajectory axes (y)
-	// y_i = Hti.block<3,1>(0,1).   dot(y_i,[0;1;0]) = y_i(2) = Hti(1,1)
-	m_errors.theta = acos(Hti(1, 1)); // [rad]
-
-	// Find axis of rotation corresponding to theta
-	// (orthogonal to y_i and y_t)
-	Vector3d axis_theta;
-	if (m_errors.theta == 0.0) // can realistically only occur in simulation
-	{
-		axis_theta = Vector3d::UnitX(); // arbitrary because theta = 0, just can't be NAN
-	}
-	else
-	{
-		axis_theta = Hti.block<3,1>(0,1).cross(Vector3d::UnitY());
-		axis_theta.normalize();
-	}
-
-	// Rotate to align y axes and make xy planes coplanar
-	Matrix3d R_theta;
-	R_theta = AngleAxisd(m_errors.theta, axis_theta);
-	Matrix3d R_yalign = R_theta*Hti.block<3, 3>(0, 0);
-
-	// Find angular error about the y axis
-	// dot product of x column and xhat is just R_yalign(0,0)
-	m_errors.phi = acos(R_yalign(0, 0));
-
-	/*cout << "CItarget:" << endl << m_CItarget_transform << endl;
-	cout << "CItool:"	<< endl << m_CItool_transform << endl;
-	cout << "Hti:"		<< endl << Hti << endl;
-	cout << "phi = "	<< (m_errors.phi*180.0 / M_PI) << endl;
-	cout << "theta = "	<< (m_errors.theta*180.0 / M_PI) << endl << endl;*/
-
-	emit sgn_err(m_errors.radial,100);
-	emit sgn_err_ang(m_errors.theta);
-}
-
-void vtk_test::Update_err(std::vector<ToolInformationStruct> const& tools)
-{
-	if (CI_entry.rows() > 0)	// check if value has been set (via registration)
-	{
-		double tip_err = sqrt( pow((-tools[2].y - (CI_entry(0,0))),2) + // tracker frame vs tool frame: -y->x, -x->y, -z->z
-							   pow((-tools[2].x - (CI_entry(0,1))),2) +
-							   pow((-tools[2].z - (CI_entry(0,2))),2) );
-		emit sgn_err(tip_err, 100);
-	}
-
-	
-	//double tip_err = sqrt( pow((-tools[2].y - (PROBE_DESIRED_X)),2) + 
-	//					   pow((-tools[2].x - (PROBE_DESIRED_Y)),2) +
-	//					   pow((-tools[2].z - (PROBE_DESIRED_Z)),2) );
-}
+//void vtk_test::Update_err(std::vector<ToolInformationStruct> const& tools)
+//{
+//	if (CI_entry.rows() > 0)	// check if value has been set (via registration)
+//	{
+//		double tip_err = sqrt( pow((-tools[2].y - (CI_entry(0,0))),2) + // tracker frame vs tool frame: -y->x, -x->y, -z->z
+//							   pow((-tools[2].x - (CI_entry(0,1))),2) +
+//							   pow((-tools[2].z - (CI_entry(0,2))),2) );
+//		emit sgn_err(tip_err, 100);
+//	}
+//
+//	
+//	//double tip_err = sqrt( pow((-tools[2].y - (PROBE_DESIRED_X)),2) + 
+//	//					   pow((-tools[2].x - (PROBE_DESIRED_Y)),2) +
+//	//					   pow((-tools[2].z - (PROBE_DESIRED_Z)),2) );
+//}
 
 //void SetTransformForCI_target( vtkSmartPointer<vtkActor> pActor_CI_target )
 //{
@@ -791,17 +828,17 @@ void vtk_test::SetTransformforCI_target(patient_data ref_patient_data, Eigen::Ma
 
 	PRINT_MATRIX(T);
 
-	vtkSmartPointer<vtkTransform> vtkT_CI = vtkSmartPointer<vtkTransform>::New();
-	vtkT_CI->SetMatrix(T.data());
-	m_pActor_CItarget->SetUserTransform( vtkT_CI );
+	//vtkSmartPointer<vtkTransform> vtkT_CI = vtkSmartPointer<vtkTransform>::New();
+	//vtkT_CI->SetMatrix(T.data());
+	//m_pActor_CItarget->SetUserTransform( vtkT_CI );
 }
 
-void vtk_test::SetTransformforCI_target(Eigen::MatrixXd T_target)
-{
-	vtkSmartPointer<vtkTransform> vtkT_CI = vtkSmartPointer<vtkTransform>::New();
-	vtkT_CI->SetMatrix(T_target.data());
-	m_pActor_CItarget->SetUserTransform( vtkT_CI );
-}
+//void vtk_test::SetTransformforCI_target(Eigen::MatrixXd T_target)
+//{
+//	vtkSmartPointer<vtkTransform> vtkT_CI = vtkSmartPointer<vtkTransform>::New();
+//	vtkT_CI->SetMatrix(T_target.data());
+//	m_pActor_CItarget->SetUserTransform( vtkT_CI );
+//}
 
 vtkSmartPointer<vtkActor> vtk_test::LoadOBJFile(QString const& str,double opacity, double color[3]) const
 {
@@ -889,6 +926,10 @@ void vtk_test::slot_Tracker_Setup()
 	pTrackerSetup->show();
 }
 
+void vtk_test::slot_saveProbe() {
+	
+}
+
 void vtk_test::slot_Demo()
 {
 	// ensure we are not creating duplicates
@@ -909,76 +950,76 @@ void vtk_test::slot_Demo()
 	pDemo_Widget->show();
 }
 
-void vtk_test::slot_SetTarget()
-{
-	flag_SetTarget = TRUE;
-}
+//void vtk_test::slot_SetTarget()
+//{
+//	flag_SetTarget = TRUE;
+//}
 
-void vtk_test::slot_DatalogStart()
-{
-	// create time-stamped filename
-	QString filename = QDate::currentDate().toString("yyyy-MM-dd");
-	QString time = QTime::currentTime().toString("_hh-mm");
-	filename.append(time);
-	filename.append(QString(".csv"));
+//void vtk_test::slot_DatalogStart()
+//{
+//	// create time-stamped filename
+//	QString filename = QDate::currentDate().toString("yyyy-MM-dd");
+//	QString time = QTime::currentTime().toString("_hh-mm");
+//	filename.append(time);
+//	filename.append(QString(".csv"));
+//
+//	// open file
+//	pDatalogFile = new QFile(filename);
+//	pDatalogFile->open(QIODevice::WriteOnly);
+//
+//	// ensure file opened ok
+//	if(!pDatalogFile->isOpen()){
+//		cout << "Error opening file";
+//		return;
+//	}
+//
+//	// write header
+//	QTextStream datalogStream(pDatalogFile);
+//	datalogStream << "elapsed time [ms], x [mm], y [mm], z [mm], radial [mm], axial [mm], theta [rad], phi [rad]\n";
+//	//datalogStream << "elapsed time [ms], error [mm]\n";
+//	
+//	// start timer
+//	m_datalogTimer.start();
+//
+//	// enable datalogging
+//	connect(this, SIGNAL(sgn_WriteData()), this, SLOT(slot_WriteData()));
+//	//connect(this, SIGNAL(sgn_err(double,double)), this, SLOT(slot_WriteData(double,double)));
+//
+//	// Note: file is automatically closed when program is terminated
+//}
 
-	// open file
-	pDatalogFile = new QFile(filename);
-	pDatalogFile->open(QIODevice::WriteOnly);
+//void vtk_test::slot_DatalogStop()
+//{
+//	// stop datalogging
+//	disconnect(this, SIGNAL(sgn_WriteData()), this, SLOT(slot_WriteData()));
+//	//disconnect(this, SIGNAL(sgn_err(double,double)), this, SLOT(slot_WriteData(double,double)));
+//
+//	// close file
+//	if(pDatalogFile != NULL){
+//		if(pDatalogFile->isOpen()){
+//			pDatalogFile->close();
+//		}
+//	}
+//}
 
-	// ensure file opened ok
-	if(!pDatalogFile->isOpen()){
-		cout << "Error opening file";
-		return;
-	}
-
-	// write header
-	QTextStream datalogStream(pDatalogFile);
-	datalogStream << "elapsed time [ms], x [mm], y [mm], z [mm], radial [mm], axial [mm], theta [rad], phi [rad]\n";
-	//datalogStream << "elapsed time [ms], error [mm]\n";
-	
-	// start timer
-	m_datalogTimer.start();
-
-	// enable datalogging
-	connect(this, SIGNAL(sgn_WriteData()), this, SLOT(slot_WriteData()));
-	//connect(this, SIGNAL(sgn_err(double,double)), this, SLOT(slot_WriteData(double,double)));
-
-	// Note: file is automatically closed when program is terminated
-}
-
-void vtk_test::slot_DatalogStop()
-{
-	// stop datalogging
-	disconnect(this, SIGNAL(sgn_WriteData()), this, SLOT(slot_WriteData()));
-	//disconnect(this, SIGNAL(sgn_err(double,double)), this, SLOT(slot_WriteData(double,double)));
-
-	// close file
-	if(pDatalogFile != NULL){
-		if(pDatalogFile->isOpen()){
-			pDatalogFile->close();
-		}
-	}
-}
-
-void vtk_test::slot_WriteData(double err_ci, double err_mag)
-{	// legacy method- do not use!!
-
-	// write next line
-	QTextStream datalogStream(pDatalogFile);
-	datalogStream << QString::number(m_datalogTimer.elapsed()) << ", " << QString::number(err_ci) << endl;
-}
-
-void vtk_test::slot_WriteData()
-{
-	// write next line
-	QTextStream datalogStream(pDatalogFile);
-	datalogStream << QString::number(m_datalogTimer.elapsed()) << ", " 
-				  << QString::number(m_errors.x) << ", "
-				  << QString::number(m_errors.y) << ", "
-				  << QString::number(m_errors.z) << ", "
-				  << QString::number(m_errors.radial) << ", "
-				  << QString::number(m_errors.axial) << ", "
-				  << QString::number(m_errors.theta) << ", "
-				  << QString::number(m_errors.phi)	 << endl;
-}
+//void vtk_test::slot_WriteData(double err_ci, double err_mag)
+//{	// legacy method- do not use!!
+//
+//	// write next line
+//	QTextStream datalogStream(pDatalogFile);
+//	datalogStream << QString::number(m_datalogTimer.elapsed()) << ", " << QString::number(err_ci) << endl;
+//}
+//
+//void vtk_test::slot_WriteData()
+//{
+//	// write next line
+//	QTextStream datalogStream(pDatalogFile);
+//	datalogStream << QString::number(m_datalogTimer.elapsed()) << ", " 
+//				  << QString::number(m_errors.x) << ", "
+//				  << QString::number(m_errors.y) << ", "
+//				  << QString::number(m_errors.z) << ", "
+//				  << QString::number(m_errors.radial) << ", "
+//				  << QString::number(m_errors.axial) << ", "
+//				  << QString::number(m_errors.theta) << ", "
+//				  << QString::number(m_errors.phi)	 << endl;
+//}

@@ -55,7 +55,7 @@ public:
 	void Initialize();
 	vtkSmartPointer<vtkActor> LoadSTLFile(QString const & str, double opacity, double color[3]) const;
 	void SetTransformforCI_target(patient_data, Eigen::MatrixXd);
-	void SetTransformforCI_target(Eigen::MatrixXd);
+	//void SetTransformforCI_target(Eigen::MatrixXd);
 
 	
 
@@ -63,32 +63,38 @@ protected:
 	Demo_Widget *pDemo_Widget;
 
 protected slots:
+    void slot_3d_activate();
     void slot_Tracker_Init();
     void slot_Tracker_Stop();
+	void slot_Tracker_Setup();
+	//void slot_Tracker_Start_Save_Probe();
+	//void slot_Tracker_Stop_Save_Probe();
 	void slot_update_COM(int thePort);
 	//void slot_onGUITimer();
 	void slot_updateTrackerInfo();
 	void slot_CenterView(QString);
 	void slot_CenterTarget();
 	void slot_Register_Patient();
-	void slot_Tracker_Setup();
-	void slot_SetTarget();
+	
+	//void slot_SetTarget();
 	void slot_onFrameRateTimer();
 	void resizeEvent(QResizeEvent *event);
 	void slot_onRegistration(Eigen::MatrixXd);
 	void slot_Demo();
-	void slot_DatalogStart();
-	void slot_DatalogStop();
-	void slot_WriteData(double,double);
-	void slot_WriteData();
+	void slot_saveProbe();
+	//void slot_DatalogStart();
+	//void slot_DatalogStop();
+	//void slot_WriteData(double,double);
+	//void slot_WriteData();
 
 signals:
 	void sgn_NewProbePosition(double,double,double);
 	void sgn_NewCIPosition(double,double,double);
-	void sgn_NewMagPosition(double,double,double);
-	void sgn_err(double,double);
-	void sgn_err_ang(double);
+	//void sgn_NewMagPosition(double,double,double);
+	//void sgn_err(double,double);
+	//void sgn_err_ang(double);
 	void sgn_WriteData();
+	void sgn_StopTracking();
 
 private:
 	bool needRefresh;
@@ -107,35 +113,36 @@ private:
 	int				m_frames;
 	QLabel			m_statusLabel;
 	QLabel			m_frameRateLabel;
-	QVTKWidget		*m_pQVTK_top;
-	QVTKWidget		*m_pQVTK_top_inset;
+	//QVTKWidget		*m_pQVTK_top;
+	//QVTKWidget		*m_pQVTK_top_inset;
 	QVTKWidget		*m_pQVTK_oblique;
-	QVTKWidget		*m_pQVTK_front;
-	QVTKWidget		*m_pQVTK_front_inset;
-	QVTKWidget		*m_pQVTK_side;
-	QVTKWidget		*m_pQVTK_side_inset;
-	QFile			*pDatalogFile;
+	//QVTKWidget		*m_pQVTK_front;
+	//QVTKWidget		*m_pQVTK_front_inset;
+	//QVTKWidget		*m_pQVTK_side;
+	//QVTKWidget		*m_pQVTK_side_inset;
+	//QFile			*pDatalogFile;
+	QFile           *forcepsFile;
 	int				m_time;
 	vtkSmartPointer<vtkRenderer>    m_pRenderer_oblique;
-	vtkSmartPointer<vtkRenderer>	m_pRenderer_top;
-	vtkSmartPointer<vtkRenderer>	m_pRenderer_top_inset;
-	vtkSmartPointer<vtkRenderer>	m_pRenderer_front;
-	vtkSmartPointer<vtkRenderer>	m_pRenderer_front_inset;
-	vtkSmartPointer<vtkRenderer>	m_pRenderer_side;
-	vtkSmartPointer<vtkRenderer>	m_pRenderer_side_inset;
+	//vtkSmartPointer<vtkRenderer>	m_pRenderer_top;
+	//vtkSmartPointer<vtkRenderer>	m_pRenderer_top_inset;
+	//vtkSmartPointer<vtkRenderer>	m_pRenderer_front;
+	//vtkSmartPointer<vtkRenderer>	m_pRenderer_front_inset;
+	//vtkSmartPointer<vtkRenderer>	m_pRenderer_side;
+	//vtkSmartPointer<vtkRenderer>	m_pRenderer_side_inset;
 	vtkSmartPointer<vtkActor>		  m_pActor_probe;
 	vtkSmartPointer<vtkActor>		  m_pActor_CItool;
-	vtkSmartPointer<vtkActor>		  m_pActor_CItarget;
+	//vtkSmartPointer<vtkActor>		  m_pActor_CItarget;
 	NDIAuroraTracker	*m_tracker;
 	RotationMatrix		dtRotMatrix;
-	Eigen::Matrix4d		m_CItarget_transform;
+	//Eigen::Matrix4d		m_CItarget_transform;
 	Eigen::Matrix4d		m_CItool_transform;
 	Eigen::Matrix4d		m_probe_transform;
 	Eigen::MatrixXd		CI_entry;
-	bool				flag_SetTarget;
+	//bool				flag_SetTarget;
 	AlignmentErrors		m_errors;
-	void Update_err(std::vector<ToolInformationStruct> const& tools);
-	void Update_err();
+	//void Update_err(std::vector<ToolInformationStruct> const& tools);
+	//void Update_err();
 	void InitVTK();
 };
 
